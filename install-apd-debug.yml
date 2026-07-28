@@ -1,0 +1,47 @@
+---
+- name: Install Ansible Product Demos (Debug Mode)
+  hosts: localhost
+  gather_facts: false
+
+  tasks:
+    - name: Make sure AAP credential environment variables are set
+      ansible.builtin.assert:
+        that:
+          - lookup('env', 'AAP_HOSTNAME') != ''
+          - >
+            lookup('env', 'AAP_TOKEN') != '' or
+            (lookup('env', 'AAP_USERNAME') != '' and lookup('env', 'AAP_PASSWORD') != '')
+        fail_msg:
+          - 'Please ensure the following environment variables are set:'
+          - '  export AAP_HOSTNAME=https://your-aap-server.example.com'
+          - '    # either a token for authentication'
+          - '  export AAP_TOKEN=<admin-token>'
+          - '    # or a username and password for basic auth'
+          - '  export AAP_USERNAME=admin  # or another user with AAP superuser privileges'
+          - '  export AAP_PASSWORD=<admin-user-password>'
+
+    - name: Debug - Show environment variables
+      ansible.builtin.debug:
+        msg:
+          - "AAP_HOSTNAME: {{ lookup('env', 'AAP_HOSTNAME') }}"
+          - "AAP_USERNAME: {{ lookup('env', 'AAP_USERNAME') }}"
+          - "AAP_VALIDATE_CERTS: {{ lookup('env', 'AAP_VALIDATE_CERTS') }}"
+          - "gateway_host: {{ gateway_host | default('not set') }}"
+          - "controller_host: {{ controller_host | default('not set') }}"
+
+    - name: Include product-demos-postinstall variables
+      ansible.builtin.include_vars:
+        file: common/bootstrap-vars.yml
+
+    - name: Debug - Show loaded credentials
+      ansible.builtin.debug:
+        msg: "Loaded {{ controller_credentials | length }} credentials"
+
+    - name: Execute automation controller resource configuration
+      ansible.builtin.include_role:
+        name: infra.aap_configuration.dispatch
+      vars:
+        # Force verbose mode
+        aap_configuration_async_dir: /tmp/aap-async
+
+...
